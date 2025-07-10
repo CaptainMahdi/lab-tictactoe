@@ -1,4 +1,17 @@
 from dataclasses import dataclass, field
+from redis import Redis
+from dotenv import load_dotenv
+import os
+load_dotenv("creds.env")
+
+r = Redis(
+    host=os.getenv("HOST"),
+    port=int(os.getenv("PORT")),
+    password=os.getenv("PASS"),
+    db=int(os.getenv("DATA"))
+)
+
+
 
 @dataclass
 class TicTacToeBoard:
@@ -7,7 +20,9 @@ class TicTacToeBoard:
     positions: list[str] = field(default_factory= lambda: [" " for _ in range(9)])
     
     def is_my_turn(self, i_am: str):
-        return self.player_turn == i_am
+        if self.state == "is_playing" and self.player_turn == i_am:
+            return True
+        return False
     def make_move(self, index:int):
         if self.state != "is_playing":
             raise ValueError("Game is not playing")
@@ -24,10 +39,8 @@ class TicTacToeBoard:
             self.switch_turn()
 
     def switch_turn(self):
-        if self.player_turn == "X":
-            self.player_turn = "O"
-        elif self.player_turn == "O":
-            self.player_turn = "X"
+        self.player_turn = "O" if self.player_turn == "X" else "X"
+        self.save_to_redis()
     def check_winner(self):
         if self.positions[0] == self.positions[1] == self.positions[2] != " ":
             return self.positions[0]
@@ -60,26 +73,23 @@ class TicTacToeBoard:
             f"{p[6]} | {p[7]} | {p[8]}"
         ]))
 
-    def play_game():
-        which_one = input("X or O? ").strip().upper()
-        if which_one not in ["X", "O"]:
-            raise ValueError("Invalid input")
-        board = TicTacToeBoard()
-        board.player_turn = which_one
 
-        while board.state == "is_playing":
-            try:
-                board.print_board()
-                index = int(input(f"{board.player_turn}'s turn. Index? "))
-                board.make_move(index)
-            except ValueError:
-                print("Invalid index")
-            except IndexError:
-                print("Index out of bounds")
-            except Exception as e:
-                print(e)
-
-        if board.state == "is_won":
-            print(f"Player {board.check_winner()} won!")
-        else:
-            print("Draw!")
+    def serialize(self):
+        return {
+            "state": self.state,
+            "player_turn": self.player_turn,
+            "positions": self.positions
+        }
+    def save_to_redis(self):
+        data = self.serialize()
+        r.json().set("board", ".", data)
+    @classmethod
+    def load_from_redis(cls):
+        data = r.json().get("board")
+        return cls(**data)
+    def reset(self):
+        self.state = "is_playing"
+        self.player_turn = "X"
+        self.positions = [" " for _ in range(9)]
+        self.save_to_redis()
+        print("Board reset")
