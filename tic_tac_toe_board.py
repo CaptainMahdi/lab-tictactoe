@@ -6,7 +6,7 @@ class TicTacToeBoard:
     player_turn: str = field(default="X")
     positions: list[str] = field(default_factory= lambda: [" " for _ in range(9)])
     
-    def is_my_turn(self, i_am: str) -> bool:
+    def is_my_turn(self, i_am: str):
         return self.player_turn == i_am
     def make_move(self, index:int):
         if self.state != "is_playing":
@@ -24,7 +24,10 @@ class TicTacToeBoard:
             self.switch_turn()
 
     def switch_turn(self):
-        self.player_turn = "O" if self.player_turn == "X" else "X"
+        if self.player_turn == "X":
+            self.player_turn = "O"
+        elif self.player_turn == "O":
+            self.player_turn = "X"
     def check_winner(self):
         if self.positions[0] == self.positions[1] == self.positions[2] != " ":
             return self.positions[0]
@@ -57,6 +60,26 @@ class TicTacToeBoard:
             f"{p[6]} | {p[7]} | {p[8]}"
         ]))
 
+    def play_game():
+        which_one = input("X or O? ").strip().upper()
+        if which_one not in ["X", "O"]:
+            raise ValueError("Invalid input")
+        board = TicTacToeBoard()
+        board.player_turn = which_one
 
+        while board.state == "is_playing":
+            try:
+                board.print_board()
+                index = int(input(f"{board.player_turn}'s turn. Index? "))
+                board.make_move(index)
+            except ValueError:
+                print("Invalid index")
+            except IndexError:
+                print("Index out of bounds")
+            except Exception as e:
+                print(e)
 
-board = TicTacToeBoard()
+        if board.state == "is_won":
+            print(f"Player {board.check_winner()} won!")
+        else:
+            print("Draw!")
