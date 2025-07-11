@@ -28,7 +28,7 @@ class TicTacToeBoard:
         return False 
     async def make_move(self, index: int) -> None:
         if self.state != "is_playing":
-            raise ValueError("Game is not playing")
+            raise ValueError ("Game is not playing")
         if not (0 <= index <= 8):
             raise ValueError("Position is out of bounds")
         if self.positions[index] != " ":
@@ -71,14 +71,11 @@ class TicTacToeBoard:
             return True
         return False
     def print_board(self) -> None:
-        p = self.positions
-        print("\n".join([
-            f"{p[0]} | {p[1]} | {p[2]}",
-            "---------",
-            f"{p[3]} | {p[4]} | {p[5]}",
-            "---------",
-            f"{p[6]} | {p[7]} | {p[8]}"
-        ]))
+        return {
+            "row1": f"{p[0]} | {p[1]} | {p[2]}",
+            "row2": f"{p[3]} | {p[4]} | {p[5]}",
+            "row3": f"{p[6]} | {p[7]} | {p[8]}"
+        }
 
 
     def serialize(self) -> dict[str, str | list[str]]:
