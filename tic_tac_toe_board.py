@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 import redis.asyncio as aioredis
 from dotenv import load_dotenv
+import asyncio
+from dataclasses import asdict
 import os
 load_dotenv("creds.env")
 
@@ -26,24 +28,31 @@ class TicTacToeBoard:
         if self.state == "is_playing" and self.player_turn == i_am:
             return True
         return False 
-    async def make_move(self, index: int) -> None:
+    async def make_move(self, player: str, index: int) -> dict:
         if self.state != "is_playing":
-            raise ValueError ("Game is not playing")
+            return {"success": False, "message": "Game is not currently active."}
+        if player != self.player_turn:
+            return {"success": False, "message": f"It is not {player}'s turn."}
         if not (0 <= index <= 8):
-            raise ValueError("Position is out of bounds")
+            return {"success": False, "message": "Position is out of bounds (0–8)."}
         if self.positions[index] != " ":
-            raise ValueError("Position is already taken")
-
-        self.positions[index] = self.player_turn
-
-        if self.check_winner() is not None:
+            return {"success": False, "message": "Position is already taken."}
+        self.positions[index] = player
+        if self.check_winner():
             self.state = "is_won"
+            message = f"Player {player} wins!"
         elif self.check_draw():
             self.state = "is_draw"
+            message = "Game ended in a draw."
         else:
             await self.switch_turn()
-
+            message = "Move accepted."
         await self.save_to_redis()
+        return {
+            "success": True,
+            "message": message,
+            "board": self.positions
+        }
 
     async def switch_turn(self) -> None:
         self.player_turn = "O" if self.player_turn == "X" else "X"
@@ -70,12 +79,16 @@ class TicTacToeBoard:
         if " " not in self.positions:
             return True
         return False
-    def print_board(self) -> None:
-        return {
-            "row1": f"{p[0]} | {p[1]} | {p[2]}",
-            "row2": f"{p[3]} | {p[4]} | {p[5]}",
-            "row3": f"{p[6]} | {p[7]} | {p[8]}"
-        }
+    def print_board(self):
+        p = self.positions
+        return (
+        f"\n{p[0]} | {p[1]} | {p[2]}\n"
+        f"---------\n"
+        f"{p[3]} | {p[4]} | {p[5]}\n"
+        f"---------\n"
+        f"{p[6]} | {p[7]} | {p[8]}\n"
+    )
+
 
 
     def serialize(self) -> dict[str, str | list[str]]:
@@ -92,14 +105,18 @@ class TicTacToeBoard:
         data = await r.json().get("board")
         return cls(**data)
 
-    async def reset(self) -> None:
+    async def reset(self) -> dict:
         self.state = "is_playing"
         self.player_turn = "X"
         self.positions = [" " for _ in range(9)]
         await self.save_to_redis()
-        print("Board reset")
+        return {"message": "Board reset"}
     def ttt_game_state_changed():
         pubsub = r.pubsub()
         pubsub.subscribe(TicTacToeBoard.PUBSUB_CHANNEL)
     def handle_board_state(i_am_playing):
         load_from_redis()
+    def to_dict(self):
+        return asdict(self)
+        
+
